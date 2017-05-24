@@ -1,0 +1,28 @@
+#sda for sys disk 
+KERNEL=="sda[0-9]", GOTO="media_by_label_auto_mount_end"
+
+KERNEL!="sd[a-z][0-9]", GOTO="media_by_label_auto_mount_end"
+
+# Import FS infos
+#IMPORT{program}="/sbin/blkid -o udev -p %N"
+
+# Get a label if present, otherwise specify one
+#ENV{ID_FS_LABEL}!="", ENV{dir_name}="%E{ID_FS_LABEL}"
+#ENV{ID_FS_LABEL}=="", ENV{dir_name}="usbhd-%k"
+
+# Global mount options
+ACTION=="add", GROUP="users", MODE="0666"
+# Filesystem-specific mount options
+
+# Mount the device
+# action /dev/sda1 devicepath(%p) 
+# add/remove devicename  check usb is ok or not 
+ACTION=="add", RUN+="/usr/bin/usb_detect '%E{ACTION}' '%N'  '%E{ID_FS_TYPE}' '%E{ID_FS_VERSION}' '%E{ID_FS_UUID}' '%E{ID_SERIAL_SHORT}' '%E{ID_FS_LABEL}' '%E{ID_VENDOR_ID}' "
+
+#ACTION=="add", RUN+="/bin/sh -c 'echo HELLO999 $attr{idVendor} ! > /tmp/log.txt'"
+
+# Clean up after removal
+ACTION=="remove", RUN+="/usr/bin/usb_detect '%E{ACTION}' '%N'  '%E{ID_FS_TYPE}' '%E{ID_FS_VERSION}' '%E{ID_FS_UUID}' '%E{ID_SERIAL_SHORT}' '%E{ID_FS_LABEL}' '%E{ID_VENDOR_ID}' "
+
+# Exit
+LABEL="media_by_label_auto_mount_end"

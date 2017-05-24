@@ -1,0 +1,4 @@
+
+Need:
+copy usb_detect to /usr/bin/ 
+give root priority
