@@ -2,6 +2,7 @@
 #include <dirent.h>
 #include <string.h>
 #include <errno.h>
+#include "db.h"
 
 #include "code.h"
 #include "log.h"
@@ -28,8 +29,9 @@ static I4	gi4TotalFileCount;
 static I4	gi4FolderLayerCount;
 static I4	gi4TotalFolderCount;
 
+static U1	gau1SQLBuffer[1024];
 
-static I4 indexing_scan_files();
+static I4 indexing_scan_files(const char* dir_name);
 
 I4 start_indexing()
 {
@@ -54,7 +56,7 @@ I4 end_indexing()
 	return 0;
 }
 
-I4 indexing_scan_folder()
+I4 indexing_scan_folder(const char* dir_name)
 {
 	U4 u4FolderSize = 0;
 	DIR*				pstDir;
@@ -74,7 +76,7 @@ I4 indexing_scan_folder()
 	
 	/////////////////////////////////
 	//scan files in the current path
-	indexing_scan_files();
+	indexing_scan_files(dir_name);
 	
 	/////////////////////////////////
 	//scan folders in the current path
@@ -143,13 +145,12 @@ I4 indexing_scan_folder()
 				continue;
 			}
 			
-			gi4TotalFolderCount++;
 			strncat( (char*)gau1CurrentPath, "/", 1);	
 			strncat( (char*)gau1CurrentPath, (const char*)pstDirEnt->d_name, u4FolderSize);	
 			gu4CurrentPathSize += (u4FolderSize + 1 );
 
 			gi4FolderLayerCount++;
-			indexing_scan_folder();
+			indexing_scan_folder((const char*)pstDirEnt->d_name);
 			gi4FolderLayerCount--;
 
 			gu4CurrentPathSize -= (u4FolderSize + 1 );
@@ -168,7 +169,7 @@ I4 indexing_scan_folder()
 	return i4Result;
 }
 
-I4 indexing_scan_files()
+I4 indexing_scan_files(const char* dir_name)
 {
 	U4 u4FolderSize = 0;
 	DIR*				pstDir;
@@ -256,8 +257,11 @@ I4 indexing_scan_files()
 			gi4FileID++;
 			gi4TotalFileCount++;
 			//out put file name
-			LOG_STR_RES("\t\t[File][gi4FileID = %ld][%s]",gi4FileID, (const char*)pstDirEnt->d_name);
-			
+			//LOG_STR_RES("\t\t[File][gi4FileID = %ld][%s]",gi4FileID, (const char*)pstDirEnt->d_name);
+			memset(gau1SQLBuffer,0,sizeof(gau1SQLBuffer));
+			sprintf(gau1SQLBuffer,"insert into FILE(ID,NAME,PATHID) values(%ld,'%s',%ld)",gi4FileID,(const char*)pstDirEnt->d_name,gi4TotalFolderCount+1);
+			//insert folder payh
+			db_insertdata(gau1SQLBuffer);
 		}
 
 		errno = 0;
@@ -272,22 +276,67 @@ I4 indexing_scan_files()
 	//	LOG_STR_RES("### after  gi4TotalFileCount_back = %ld gi4TotalFileCount = %ld",gi4TotalFileCount_back, gi4TotalFileCount);
 	if (gi4TotalFileCount_back == gi4TotalFileCount)
 	{
-	//	LOG_STR_RES("Empty Folder is %s",gau1CurrentPath);
+		LOG_STR_RES("Empty Folder is %s",gau1CurrentPath);
+	}
+	else
+	{
+			gi4TotalFolderCount++;
+			memset(gau1SQLBuffer,0,sizeof(gau1SQLBuffer));
+			sprintf(gau1SQLBuffer,"insert into FOLDER(ID,NAME,PATHID) values(%ld,'%s',%ld)",gi4TotalFolderCount,dir_name,gi4TotalFolderCount);
+			//insert folder payh
+			db_insertdata(gau1SQLBuffer);
+			sprintf(gau1SQLBuffer,"insert into FOLDERPATH values(%ld,'%s')",gi4TotalFolderCount,gau1CurrentPath);
+			//insert folder payh
+			db_insertdata(gau1SQLBuffer);		
+
 	}
 	
 	return i4Result;
 }
 
 
+int	int_db()
+{
+	db_open();
+	//create table
+	char *sql = "CREATE TABLE FOLDER ("\
+	    "ID           INTEGER PRIMARY KEY,"\
+	    "SORTID       INTEGER DEFAULT 0,"\
+	    "NAME         TEXT    NOT NULL,"\
+	    "PATHID         INTEGER DEFAULT 0"\
+		");";
+	db_create_table(sql);
+	sql = "CREATE TABLE FOLDERPATH ("\
+			"ID           INTEGER PRIMARY KEY,"\
+			"NAME         TEXT    NOT NULL"\
+			");";
+	db_create_table(sql);
+		sql = "CREATE TABLE FILE ("\
+			"ID           INTEGER PRIMARY KEY,"\
+	   		"SORTID       INTEGER DEFAULT 0,"\
+			"NAME         TEXT    NOT NULL,"\
+	    	"PATHID         INTEGER DEFAULT 0"\
+			");";
+	db_create_table(sql);
+	return 0;
+}
+
+
+int	close_db()
+{
+	db_close();
+	return 0;
+}
 
 
 int main(int argc,char *argv[])  
 {  	
 	start_indexing();
+	int_db();
 	strcpy(gau1CurrentPath, argv[1]);
 	gu4CurrentPathSize = strlen(argv[1]);
-	indexing_scan_folder();
-	
+	indexing_scan_folder("Root");
+	close_db();	
 	return 0;
 } 
 

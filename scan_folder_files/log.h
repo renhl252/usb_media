@@ -14,16 +14,18 @@ typedef unsigned long U32;
 
 void log_print_bin(const char *filename, const char *function, unsigned long lineno, char *buf, unsigned long length);
 
-#if 0
+#if 1
 #define LOG_STR(fmt,...)		printf("[%s] [%d]"fmt"\n", __FUNCTION__,__LINE__,##__VA_ARGS__)
 #define LOG_STR(fmt,...)		printf("[%s] [%d]"fmt"\n", __FUNCTION__,__LINE__,##__VA_ARGS__)
 #define LOG_BIN(buffer,length)  log_print_bin(__FILE__,__FUNCTION__,__LINE__,(char *)buffer,length)
+#define LOG_STR_RES(fmt,...)		printf("[%s] [%d]"fmt"\n", __FUNCTION__,__LINE__,##__VA_ARGS__)
 
-#endif
+#else
 
 #define LOG_STR_RES(fmt,...)		printf("[%s] [%d]"fmt"\n", __FUNCTION__,__LINE__,##__VA_ARGS__)
 #define LOG_STR(fmt,...)		
 #define LOG_BIN(buffer,length)  
 
+#endif
 
 #endif
