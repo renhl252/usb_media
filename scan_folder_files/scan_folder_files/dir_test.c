@@ -21,6 +21,8 @@
 
 
 static U1	gau1CurrentPath[ D_PATH_MAX_SIZE + 4 ];
+static U1	gau1CurrentFilePath[ D_PATH_MAX_SIZE + 4 + 255 ];
+
 static U4	gu4CurrentPathSize;
 static I4	gi4FileID;
 static I4	gi4FolderID;
@@ -32,6 +34,18 @@ static I4	gi4TotalFolderCount;
 static U1	gau1SQLBuffer[1024];
 
 static I4 indexing_scan_files(const char* dir_name);
+
+typedef enum _EN_FILE_TYPE
+{
+	D_FILE_EXTENTION_MP3 = 1,
+	D_FILE_EXTENTION_WMA,
+	D_FILE_EXTENTION_AAC,
+	D_FILE_EXTENTION_M4A,
+	D_FILE_EXTENTION_OTHER
+}EN_FILE_TYPE;
+	
+#define D_FILE_EXT_LENGTH 4
+static I4 get_fileextensiontype( U1* pu1FileName, U4* pu4ExtType );
 
 I4 start_indexing()
 {
@@ -251,17 +265,23 @@ I4 indexing_scan_files(const char* dir_name)
 				continue;
 			}
 #endif
-
-			//check extention to do 
+			U4 pu4ExtType = 0;
+			memset(gau1CurrentFilePath,0,sizeof(gau1CurrentFilePath));
+			memcpy(gau1CurrentFilePath,gau1CurrentPath,gi4TotalFolderCount);
+			strcat(gau1CurrentFilePath,(const char*)pstDirEnt->d_name);
 			
-			gi4FileID++;
-			gi4TotalFileCount++;
-			//out put file name
-			//LOG_STR_RES("\t\t[File][gi4FileID = %ld][%s]",gi4FileID, (const char*)pstDirEnt->d_name);
-			memset(gau1SQLBuffer,0,sizeof(gau1SQLBuffer));
-			sprintf(gau1SQLBuffer,"insert into FILE(ID,NAME,PATHID) values(%ld,'%s',%ld)",gi4FileID,(const char*)pstDirEnt->d_name,gi4TotalFolderCount+1);
-			//insert folder payh
-			db_insertdata(gau1SQLBuffer);
+			//check extention to do 
+			if (get_fileextensiontype(gau1CurrentFilePath,&pu4ExtType) == 0)
+			{
+				gi4FileID++;
+				gi4TotalFileCount++;
+				LOG_STR_RES("\t[File][gi4FileID = %ld][filetype=%ld][%s]",gi4FileID, pu4ExtType,(const char*)pstDirEnt->d_name);
+				memset(gau1SQLBuffer,0,sizeof(gau1SQLBuffer));
+				sprintf(gau1SQLBuffer,"insert into FILE(ID,NAME,PATHID) values(%ld,'%s',%ld)",gi4FileID,(const char*)pstDirEnt->d_name,gi4TotalFolderCount+1);
+				//insert folder payh
+				db_insertdata(gau1SQLBuffer);
+			}
+
 		}
 
 		errno = 0;
@@ -327,6 +347,86 @@ int	close_db()
 	db_close();
 	return 0;
 }
+
+U1* com_strtoupper(U1* pu1Str)
+{
+	U1 *pu1WorkStr;  
+	if ( NULL == pu1Str )
+	{
+		return pu1Str;
+	}
+	for ( pu1WorkStr = pu1Str; *pu1WorkStr; pu1WorkStr++ )
+	{
+		*pu1WorkStr = toupper( *pu1WorkStr );  
+	}        
+	return ( pu1Str );       
+}
+
+I4 get_fileextensiontype( U1* pu1FileName, U4* pu4ExtType )
+{
+	U4		u4FileNameSize			= 0;
+	U1*		pu1UpperExt			= NULL;
+	I4		i4CmpRet			= -1;
+	U1		au1Extention[ 4 ];
+
+	if ( NULL == pu1FileName )
+	{
+		return -1;
+	}
+	if ( NULL == pu4ExtType )
+	{
+		return -1;
+	}
+	
+	memset( (U1*)&au1Extention[ 0 ], 0, sizeof( au1Extention ) );
+
+	u4FileNameSize = strlen( (char*)pu1FileName );
+	strncpy( (char*)au1Extention , (char*)(pu1FileName + u4FileNameSize - D_FILE_EXT_LENGTH), D_FILE_EXT_LENGTH );
+
+	au1Extention[ D_FILE_EXT_LENGTH ] = '\0';
+
+	pu1UpperExt = com_strtoupper( au1Extention );
+	
+	i4CmpRet = strncmp( (char*)pu1UpperExt, ".MP3" , D_FILE_EXT_LENGTH );
+	if ( 0 == i4CmpRet )
+	{
+		*pu4ExtType = D_FILE_EXTENTION_MP3;
+	}
+	else {
+		i4CmpRet = strncmp( (char*)pu1UpperExt, ".WMA" , D_FILE_EXT_LENGTH );
+		if ( 0 == i4CmpRet )
+		{
+			*pu4ExtType = D_FILE_EXTENTION_WMA;
+		}
+		else
+		{
+			i4CmpRet = strncmp( (char*)pu1UpperExt, ".AAC" , D_FILE_EXT_LENGTH );
+			if ( 0 == i4CmpRet )
+			{
+				*pu4ExtType = D_FILE_EXTENTION_AAC;
+			}
+			else
+			{
+				i4CmpRet = strncmp( (char*)pu1UpperExt, ".M4A" , D_FILE_EXT_LENGTH );
+				if ( 0 == i4CmpRet )
+				{
+					*pu4ExtType = D_FILE_EXTENTION_M4A;
+				}
+				else
+				{
+					*pu4ExtType = D_FILE_EXTENTION_OTHER;
+					return -1;
+				}			
+				
+
+			}
+		}
+	}
+
+	return 0;
+}
+
+
 
 
 int main(int argc,char *argv[])  
