@@ -3,6 +3,6 @@ all:
 
 clean:
 	rm -f scan_test
-
+	rm -f test.db
 
 .PHONY:all clean
